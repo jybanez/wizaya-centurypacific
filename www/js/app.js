@@ -236,13 +236,13 @@ var App = {
 				console.log(Json.encode(cordova));
 				var directory = this.directories[cordova.platformId];
 				console.log('Device Platform:',cordova.platformId);
-				console.log('Directory:',directory);
+				console.log('Directory:',cordova.file[directory]);
 				if (!$defined(location)) {
 					this.$root = fileSystem.root;
 					console.log('File Location:',Json.encode(this.$root));
 					this.fireEvent('onReady',[this]);
 				} else {
-					this.getEntry(cordova.file[directory],function(dirEntry){
+					window.resolveLocalFileSystemURL(cordova.file[directory],function(dirEntry){
 						this.$root = dirEntry;
 						console.log('File Location:',Json.encode(this.$root));
 						this.fireEvent('onReady',[this]);
