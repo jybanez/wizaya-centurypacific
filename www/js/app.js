@@ -219,16 +219,39 @@ var App = {
 	FileSystem:new Class({
 		Implements:[Events,Options],
 		options:{
-			quota:100,
+			quota:0,
 			storage:'PERSISTENT'
+		},
+		locations:{
+			browser:null,
+			android:'dataDirectory',
+			ios:'dataDirectory',
+			windows:'dataDirectory'
 		},
 		initialize:function(options){
 			this.setOptions(options);
 			window.requestFileSystem(window[this.options.storage], this.getQuota(), function (fileSystem) {
-				this.$root = fileSystem.root;
 				console.log('file system open: ' + fileSystem.name);
 				console.log(fileSystem);
-				this.fireEvent('onReady',[this]);
+				console.log(cordova);
+				var location = this.locations[cordova.platformId];
+				console.log('Device Platform:',cordova.platformId);
+				if (!$defined(location)) {
+					this.$root = fileSystem.root;
+					console.log('File Location:',this.$root);
+					this.fireEvent('onReady',[this]);
+				} else {
+					this.getEntry(cordova.file.dataDirectory,function(dirEntry){
+						this.$root = dirEntry;
+						console.log('File Location:',this.$root);
+						this.fireEvent('onReady',[this]);
+					}.bind(this),function(e){
+						console.log('Error on assigning root directory entry',e);
+					});	
+				}
+				
+				//var directory 
+				
 			}.bind(this), function(){
 				console.log('ON Request File System Error',arguments);
 			}.bind(this));
