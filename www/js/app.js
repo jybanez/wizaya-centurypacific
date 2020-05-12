@@ -234,7 +234,7 @@ var App = {
 				console.log('file system open: ' + fileSystem.name);
 				console.log(Json.encode(fileSystem));
 				console.log(Json.encode(cordova));
-				var directory = this.directories[cordova.platformId];
+				var directory = cordova.file[this.directories[cordova.platformId]];
 				console.log('Device Platform:',cordova.platformId);
 				console.log('Directory:',directory);
 				if (!$defined(location)) {
