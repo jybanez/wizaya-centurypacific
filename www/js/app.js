@@ -222,7 +222,7 @@ var App = {
 			quota:0,
 			storage:'PERSISTENT'
 		},
-		locations:{
+		directories:{
 			browser:null,
 			android:'dataDirectory',
 			ios:'dataDirectory',
@@ -234,14 +234,15 @@ var App = {
 				console.log('file system open: ' + fileSystem.name);
 				console.log(Json.encode(fileSystem));
 				console.log(Json.encode(cordova));
-				var location = this.locations[cordova.platformId];
+				var directory = this.directories[cordova.platformId];
 				console.log('Device Platform:',cordova.platformId);
+				console.log('Directory:',directory);
 				if (!$defined(location)) {
 					this.$root = fileSystem.root;
 					console.log('File Location:',Json.encode(this.$root));
 					this.fireEvent('onReady',[this]);
 				} else {
-					this.getEntry(cordova.file.dataDirectory,function(dirEntry){
+					this.getEntry(directory,function(dirEntry){
 						this.$root = dirEntry;
 						console.log('File Location:',Json.encode(this.$root));
 						this.fireEvent('onReady',[this]);
