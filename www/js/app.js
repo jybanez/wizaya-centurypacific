@@ -232,26 +232,23 @@ var App = {
 			this.setOptions(options);
 			window.requestFileSystem(window[this.options.storage], this.getQuota(), function (fileSystem) {
 				console.log('file system open: ' + fileSystem.name);
-				console.log(fileSystem);
-				console.log(cordova);
+				console.log(Json.encode(fileSystem));
+				console.log(Json.encode(cordova));
 				var location = this.locations[cordova.platformId];
 				console.log('Device Platform:',cordova.platformId);
 				if (!$defined(location)) {
 					this.$root = fileSystem.root;
-					console.log('File Location:',this.$root);
+					console.log('File Location:',Json.encode(this.$root));
 					this.fireEvent('onReady',[this]);
 				} else {
 					this.getEntry(cordova.file.dataDirectory,function(dirEntry){
 						this.$root = dirEntry;
-						console.log('File Location:',this.$root);
+						console.log('File Location:',Json.encode(this.$root));
 						this.fireEvent('onReady',[this]);
 					}.bind(this),function(e){
 						console.log('Error on assigning root directory entry',e);
 					});	
-				}
-				
-				//var directory 
-				
+				}				
 			}.bind(this), function(){
 				console.log('ON Request File System Error',arguments);
 			}.bind(this));
