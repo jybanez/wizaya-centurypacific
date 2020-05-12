@@ -224,7 +224,7 @@ var App = {
 		},
 		directories:{
 			browser:null,
-			android:'dataDirectory',
+			android:'externalDataDirectory',
 			ios:'dataDirectory',
 			windows:'dataDirectory'
 		},
