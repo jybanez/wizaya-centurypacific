@@ -259,6 +259,20 @@ var App = {
 		getRoot:function(){
 			return this.$root;
 		},
+		isEmpty:function(onEmpty,onNotEmpty){
+			this.readDirectory(this.getRoot(),false,function(entries){
+				console.log('isEmpty',entries.length);
+				if (entries.length) {
+					if ($type(onNotEmpty)=='function') {
+						onNotEmpty();
+					}
+				} else {
+					if ($type(onEmpty)=='function') {
+						onEmpty();
+					}
+				}
+			}.bind(this));
+		},
 		clear:function(onClear,onError){
 			this.readDirectory(this.getRoot(),false,function(entries){
 				console.log('Clear',entries.length);
