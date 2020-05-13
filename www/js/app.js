@@ -54,7 +54,12 @@ var App = {
 							this.$data = Json.decode(content);
 							onGet(this.$data);
 						}
-					}.bind(this),onError);
+					}.bind(this),function(e){
+						console.log('Loader Get Data : Read File Error:app.json',Json.encode(e));
+						if ($type(onError)=='function'){
+							onError(e);
+						}
+					}.bind(this));
 				}.bind(this),function(){
 					this.startSpin('Downloading Updates. Please wait...');
 					this.requestData(function(result){			
@@ -67,8 +72,18 @@ var App = {
 								onGet(this.$data);
 							}
 							//this.stopSpin();
-						}.bind(this),onError);
-					}.bind(this),onError);
+						}.bind(this),function(e){
+							console.log('Loader Get Data : Create File Error:app.json',Json.encode(e));
+							if ($type(onError)=='function'){
+								onError(e);
+							}
+						}.bind(this));
+					}.bind(this),function(e){
+						console.log('Loader Get Data : Request Data Error:app.json',Json.encode(e));
+						if ($type(onError)=='function'){
+							onError(e);
+						}
+					}.bind(this));
 				}.bind(this));
 			} else {
 				onGet(this.$data);
