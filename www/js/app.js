@@ -224,7 +224,7 @@ var App = {
 		},
 		directories:{
 			browser:null,
-			android:'externalDataDirectory',
+			android:'dataDirectory',
 			ios:'dataDirectory',
 			windows:'dataDirectory'
 		},
@@ -232,24 +232,23 @@ var App = {
 			this.setOptions(options);
 			window.requestFileSystem(window[this.options.storage], this.getQuota(), function (fileSystem) {
 				console.log('file system open: ' + fileSystem.name);
-				console.log(Json.encode(fileSystem));
-				console.log(Json.encode(cordova));
-				var directory = this.directories[cordova.platformId];
-				console.log('Device Platform:',cordova.platformId);
-				console.log('Directory:',cordova.file[directory]);
-				if (!$defined(location)) {
-					this.$root = fileSystem.root;
-					console.log('File Location:',Json.encode(this.$root));
+				switch(cordova.platformId){
+					case 'browser':
+						this.$base = cordova.file.dataDirectory.replace(/file\:\/\/\//,cordova.file.applicationDirectory);
+						break;
+					default:
+						var directory = this.directories[cordova.platformId];
+						this.$base = cordova.file[directory];	
+				}
+				
+				console.log('Base : ',this.$base);
+				window.resolveLocalFileSystemURL(this.$base,function(dirEntry){
+					this.$root = dirEntry;
+					//console.log('File Location:',Json.encode(this.$root));
 					this.fireEvent('onReady',[this]);
-				} else {
-					window.resolveLocalFileSystemURL(cordova.file[directory],function(dirEntry){
-						this.$root = dirEntry;
-						console.log('File Location:',Json.encode(this.$root));
-						this.fireEvent('onReady',[this]);
-					}.bind(this),function(e){
-						console.log('Error on assigning root directory entry',e);
-					});	
-				}				
+				}.bind(this),function(e){
+					console.log('Error on assigning root directory entry',e);
+				});				
 			}.bind(this), function(){
 				console.log('ON Request File System Error',arguments);
 			}.bind(this));
@@ -259,20 +258,6 @@ var App = {
 		},
 		getRoot:function(){
 			return this.$root;
-		},
-		isEmpty:function(onEmpty,onNotEmpty){
-			this.readDirectory(this.getRoot(),false,function(entries){
-				console.log('isEmpty',entries.length);
-				if (entries.length) {
-					if ($type(onNotEmpty)=='function') {
-						onNotEmpty();
-					}
-				} else {
-					if ($type(onEmpty)=='function') {
-						onEmpty();
-					}
-				}
-			}.bind(this));
 		},
 		clear:function(onClear,onError){
 			this.readDirectory(this.getRoot(),false,function(entries){
@@ -298,13 +283,18 @@ var App = {
 			return this;
 		},
 		getBase:function(){
+			return this.$base;
+			/*
 			var host = cordova.file.applicationDirectory;
 			var directory = cordova.file[this.options.storage=='PERSISTENT'?'dataDirectory':'cacheDirectory'];
 			return directory.replace(/file\:\/\/\//,host);
+			*/
 		},
 		getEntry:function(path,onSuccess,onError){
 			var name = this.getBase()+(path.charAt(0)=='/'?path.substr(1):path);
-			//console.log(name);
+			console.log('Get Entry');
+			console.log('Path',path);
+			console.log('name',name);
 			window.resolveLocalFileSystemURL(name,onSuccess,onError);
 			return this;
 		},
