@@ -40,6 +40,7 @@ var App = {
 			App.$instance = this;
 		},
 		requestData:function(onRequest,onError){
+			console.log('Loader Request Data');
 			new Request({
 				url:this.app,
 				onSuccess:onRequest,
@@ -63,6 +64,7 @@ var App = {
 				}.bind(this),function(){
 					this.startSpin('Downloading Updates. Please wait...');
 					this.requestData(function(result){			
+						console.log(result);
 						this.$data = Json.decode(result);
 						this.$fileSystem.createFile(this.$fileSystem.getRoot(),{
 							name:'app.json',
