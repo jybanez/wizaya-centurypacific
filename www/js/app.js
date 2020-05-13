@@ -195,7 +195,7 @@ var App = {
 					}.bind(this));	
 				}.bind(this));				
 			}.bind(this),function(e){
-				console.log(e);
+				console.log(Json.encode(e));
 			}.bind(this));
 		}
 	}),
