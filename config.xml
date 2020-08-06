@@ -1,12 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="com.wizaya.centurypacific" 
-	version="1.0.2" 
-	versionCode="" 
-	xmlns="http://www.w3.org/ns/widgets" 
-	xmlns:android="http://schemas.android.com/apk/res/android" 
-	xmlns:gap="http://phonegap.com/ns/1.0">
-    <name>Century Pacific</name>
-    <description>Century Pacific</description>
+<widget id="com.wizaya.centurypacific" version="1.0.3" versionCode="" xmlns="http://www.w3.org/ns/widgets" xmlns:android="http://schemas.android.com/apk/res/android" xmlns:gap="http://phonegap.com/ns/1.0">
+    <name>Century Pacific Food</name>
+    <description>Project Titan of Century Pacific Food</description>
     <author email="support@wizaya.com" href="http://www.wizaya.com">Tech Project Hive - Wizaya Division</author>
     <feature name="http://api.phonegap.com/1.0/battery" />
     <feature name="http://api.phonegap.com/1.0/camera" />
@@ -70,15 +65,11 @@
         -->
 	</platform>
 	<platform name="android">
-		<preference name="SplashMaintainAspectRatio" value="true" />
-		<preference name="SplashShowOnlyFirstTime" value="true" />
-		<preference name="AndroidLaunchMode" value="singleTask"/>
-		<preference name="AndroidPersistentFileLocation" value="Compatibility" />
-		
 		<config-file parent="/*" target="AndroidManifest.xml">
 			<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-        </config-file>
-		
+		</config-file>
+		<preference name="SplashMaintainAspectRatio" value="true" />
+		<preference name="SplashShowOnlyFirstTime" value="true" />
 		<icon density="ldpi" src="res/icon/android/ldpi.png"/>
         <icon density="mdpi" src="res/icon/android/mdpi.png"/>
         <icon density="hdpi" src="res/icon/android/hdpi.png"/>
@@ -105,8 +96,6 @@
         -->
 	</platform>
 	<platform name="windows">
-		<preference name="windows-target-version" value="10.0" />
-		
 		<icon src="res/icon/windows/storelogo.png" target="StoreLogo"/>
         <icon src="res/icon/windows/smalllogo.png" target="Square30x30Logo"/>
         <icon src="res/icon/windows/Square44x44Logo.png" target="Square44x44Logo"/>
@@ -138,7 +127,10 @@
         <allow-intent href="itms-apps:*" />
     </platform>
 	
+	<preference name="windows-target-version" value="10.0" />
 	<preference name="phonegap-version" value="cli-9.0.0" />
+	<preference name="AndroidLaunchMode" value="singleTask"/>
+	<preference name="AndroidPersistentFileLocation" value="Compatibility" />
 	
 	<plugin name="cordova-plugin-statusbar"/>
     <plugin name="cordova-plugin-geolocation" />

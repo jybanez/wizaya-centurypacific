@@ -17,8 +17,8 @@ var App = {
 		},
 		hide:function(){
 			this.splash.removeClass(this.options.classes.active);
-		}
-	}),
+		} 
+	}),  
 	Loader:new Class({
 		Implements:[Events,Options],
 		options:{
@@ -26,67 +26,193 @@ var App = {
 		},
 		$assetsUpdated:false,
 		initialize:function(app,options){
+			/*
+			var source = '/includes/css/styles.css'.toURI();
+			var sourcePath = source.get('directory');
+			
+			var asset = '../images/spinner_up.png';
+			var assetPath = (sourcePath+asset).toURI().toAbsolute();
+			console.log(assetPath);
+			return;
+			var base = 'temporary/';
+			var asset = sourcePath+'../images/spinner_up.png';
+			var uri = new URI();
+			uri.set('directory','/'+base+source);
+			console.log(uri.toRelative());
+			console.log(uri.toAbsolute('filesystem:http://localhost:3000'));
+			return;
+			*/
+		       
 			this.app = app;
+			var url = app.toURI();
+			this.$id = url.get('host');
+			
 			this.setOptions(options);
+			this.$body = document.id(window.document.body);
+			this.$head = document.id(window.document.head);
+			
+			this.initializeNetwork();
+			
 			this.$assets = new Array();
 			this.$isLoaded = new Array();
-			App.FileSystem.getInstance('PERSISTENT',{
+			
+			console.log('Welcome!',this.$id,device);
+			if (['android'].contains(device.platform.toLowerCase())) {
+				new App.Interface.Log();	
+			}
+			
+			App.FileSystem.getInstance('TEMPORARY',{
+				base:'/'+this.$id,
 				onReady:function(instance){
 					this.$fileSystem = instance;
 					this.run();
+					return; 
+					
+					this.$fileSystem.clear(function(){
+						this.run();
+					}.bind(this)); 
 					//this.reset();
 				}.bind(this)
 			});
 			App.$instance = this;
+			 
+			window.addEvents({
+				onLoadAsset:function(library){
+					console.log('Asset Loaded',library);
+					switch(library){
+						case 'L':
+							L.Icon.Default.imagePath = "https://cdn.wizaya.com/includes/images/";
+							console.log(L.Icon.Default);
+							break;	
+					}
+				}
+			});
+		},
+		initializeNetwork:function(){
+			var networkState = navigator.connection.type;
+
+		    var states = {};
+		    states[Connection.UNKNOWN]  = 'Unknown connection';
+		    states[Connection.ETHERNET] = 'Ethernet connection';
+		    states[Connection.WIFI]     = 'WiFi connection';
+		    states[Connection.CELL_2G]  = 'Cell 2G connection';
+		    states[Connection.CELL_3G]  = 'Cell 3G connection';
+		    states[Connection.CELL_4G]  = 'Cell 4G connection';
+		    states[Connection.CELL]     = 'Cell generic connection';
+		    states[Connection.NONE]     = 'No network connection';
+		    
+		    window.$connection = states[networkState];
+		    window.$isOnline = (window.$connection==Connection.UNKNOWN && device.platform=='browser') || window.$connection!=Connection.NONE;
+		      
+		    console.log(window.$connection,window.$isOnline);
+		    console.log(navigator.connection);
+		    document.addEventListener("offline", function(){
+		    	window.$isOnline = false;
+		    	window.fireEvent('onOffline');
+		    	console.log('App Offline');
+		    }.bind(this), false);
+		    document.addEventListener("online", function(){
+		    	window.$isOnline = true;
+		    	window.fireEvent('onOnline');
+		    	console.log('App Online');
+		    }.bind(this), false);
+		},
+		getFileSystem:function(){
+			return this.$fileSystem;
+		},
+		createOffline:function(onCreate){
+			if (!$defined(this.$offline)) {
+				this.$offline = new Element('div',{'class':'offline'});
+				new Request({
+					method:'get',
+					url:'offline.html',
+					onSuccess:function(response){
+						this.$offlineTemplate = response;
+						onCreate();
+					}.bind(this)
+				}).send();
+			} else {
+				onCreate();
+			}
+		},
+		showOffline:function(message,onRetry){
+			this.createOffline(function(){
+				var button = this.$offline.inject(this.$body).set('html',this.$offlineTemplate.substitute({
+					message:message
+				})).getElement('button');
+				button.addEvent('click',onRetry);
+			}.bind(this));
+		},
+		hideOffline:function(){
+			if ($defined(this.$offline)) {
+				this.$offline.remove();	
+			}
 		},
 		requestData:function(onRequest,onError){
-			console.log('Loader Request Data');
-			new Request({
-				url:this.app,
-				onSuccess:onRequest,
-				onFailure:onError
-			}).send();
+			this.hideOffline();
+			if (window.$isOnline) {
+				this.startSpin('Downloading Updates. Please wait...');
+				new Request({
+					url:this.app,
+					onSuccess:function(result){
+						if ($type(onRequest)=='function'){
+							onRequest(result);
+						}
+						this.stopSpin('Update Complete!');
+					}.bind(this),
+					onFailure:function(xhr){
+						console.log(arguments);
+						switch(xhr.status){
+							case 500:
+								this.showOffline('Unable to connect to Internet. Please check your internet connection.',function(){
+									this.requestData(onRequest,onError);
+								}.bind(this));
+								break;
+							default:
+								if ($type(onError)=='function') {
+									onError();
+								}
+						}
+						this.stopSpin('No Internet Connection','exclamation');
+					}.bind(this)
+				}).send();
+			} else {
+				this.showOffline('Unable to connect to Internet. Please check your internet connection.',function(){
+					this.requestData(onRequest,onError);
+				}.bind(this));
+			}
+			
 		},
 		getData:function(onGet,onError){
 			if (!$defined(this.$data)) {
-				this.$fileSystem.getEntry('/app.json',function(fileEntry){
+				//var filePath = '/'+this.$id;
+				var fileName = 'data.json';
+				this.$fileSystem.getEntry('/'+fileName,function(fileEntry){
 					this.$fileSystem.readFile(fileEntry,function(content){
 						if ($type(onGet)=='function') {
 							this.$data = Json.decode(content);
 							onGet(this.$data);
 						}
-					}.bind(this),function(e){
-						console.log('Loader Get Data : Read File Error:app.json',Json.encode(e));
-						if ($type(onError)=='function'){
-							onError(e);
-						}
-					}.bind(this));
+					}.bind(this),onError);
 				}.bind(this),function(){
-					this.startSpin('Downloading Updates. Please wait...');
 					this.requestData(function(result){			
-						console.log(result);
 						this.$data = Json.decode(result);
-						this.$fileSystem.createFile(this.$fileSystem.getRoot(),{
-							name:'app.json',
+						this.$fileSystem.createFile(this.$fileSystem.getBaseEntry(),{
+							name:fileName,
 							content:[result]
 						},function(entry){
 							if ($type(onGet)=='function') {
 								onGet(this.$data);
 							}
 							//this.stopSpin();
-						}.bind(this),function(e){
-							console.log('Loader Get Data : Create File Error:app.json',Json.encode(e));
-							if ($type(onError)=='function'){
-								onError(e);
-							}
-						}.bind(this));
-					}.bind(this),function(e){
-						console.log('Loader Get Data : Request Data Error:app.json',Json.encode(e));
-						if ($type(onError)=='function'){
-							onError(e);
-						}
-					}.bind(this));
+						}.bind(this),onError);
+					}.bind(this),onError);
 				}.bind(this));
+
+				//this.$fileSystem.getDirectory(this.$fileSystem.getBaseEntry(),filePath,true,function(dirEntry){
+					
+				//}.bind(this),onError);
+				
 			} else {
 				onGet(this.$data);
 			}
@@ -106,7 +232,7 @@ var App = {
 			this.$spinCounter++;
 			//console.log(this.$spinCounter);
 		},
-		stopSpin:function(message){
+		stopSpin:function(message,icon){
 			if (this.$spinCounter) {
 				this.$spinCounter--;
 				if (!this.$spinCounter) {
@@ -114,14 +240,13 @@ var App = {
 					if (message.length) {
 						this.$spinner
 							.removeClass('loading')
-							.addClass('check')
+							.addClass($pick(icon,'check'))
 							.set('html',message)
 							;	
 					}
 					this.$spinner.removeClass('visible');
 				}	
 			}
-			//console.log(this.$spinCounter);
 		},
 		reset:function(onReset,onError){
 			this.$fileSystem.clear(function(){
@@ -131,13 +256,14 @@ var App = {
 			}.bind(this));
 		},
 		update:function(onUpdate,onError){
-			this.startSpin('Downloading Updates. Please wait...');
 			this.requestData(function(result){
-				this.$fileSystem.createFile(this.$fileSystem.getRoot(),{
+				this.$fileSystem.createFile(this.$fileSystem.getBaseEntry(),{
 					name:'app.json',
 					content:[result]
 				},function(entry){
 					var data = Json.decode(result);
+					var stylesheet = data.stylesheet.toURI(),	
+						javascript = data.script.toURI();
 					new App.Localizer(this.$fileSystem,{
 						overwrite:true,
 						onDownloadComplete:function(){
@@ -145,32 +271,33 @@ var App = {
 							if ($type(onUpdate)=='function') {
 								onUpdate();
 							}
-							this.stopSpin('Update Complete!');	
+							
 						}.bind(this)
 					}).setItems([{
 						source:data.stylesheet,
-						target:this.toLocalURL(data.stylesheet)
+						target:stylesheet.get('directory')+stylesheet.get('file')
 					},{
 						source:data.script,
-						target:this.toLocalURL(data.script)
+						target:javascript.get('directory')+javascript.get('file')
 					}]).download();	
 				}.bind(this),onError);
 			}.bind(this),onError);
 		},
-		toLocalURL:function(url){
-			var base = this.$fileSystem.getBase();
-			var host = url.toURI().set('directory','').set('file','').set('fragment','').set('query','').toString(),
-				path = url.replace(host,this.$fileSystem.getRoot().toURL().replace(base,'/'));	 	
-			return path;
-		},
 		loadAsset:function(source,onLoad){
-			var target = this.toLocalURL(source);
+			var url = source.toURI();
+			var target = url.get('directory')+url.get('file');
+			console.log('App Load Asset',target);
 			this.$fileSystem.getEntry(target,function(fileEntry){
 				onLoad(fileEntry.toURL());
 			}.bind(this),function(){
+				onLoad(source);
+				this.startSpin('Downloading Updates. Please wait...');
 				new App.Localizer(this.$fileSystem,{
 					onSave:function(item,fileEntry){
-						onLoad(fileEntry.toURL());
+						//onLoad(fileEntry.toURL());
+					}.bind(this),
+					onDownloadComplete:function(){
+						this.stopSpin('Updates Complete!');
 					}.bind(this)
 				}).setItems([{
 					source:source,
@@ -180,11 +307,12 @@ var App = {
 		},
 		run:function(){
 			this.getData(function(data){
-				var body = document.id(window.document.body).appendHTML(data.body,'top');
-				var head = document.id(window.document.head);
+				console.log('App Data',data);
+				var body = this.$body.appendHTML(data.body,'top');
+				var head = this.$head;
 				//this.startSpin('Updating. Please wait...');
 				this.loadAsset(data.stylesheet,function(styleUrl){
-					//console.log(data.stylesheet,styleUrl);
+					console.log(data.stylesheet,styleUrl);
 					new Asset.css(styleUrl,{
 						onload:function(){
 							new Element('style',{
@@ -202,8 +330,7 @@ var App = {
 								//return;
 								new Element('script',{
 									type:'text/javascript'
-								}).inject(head).set('text',data.inlineScripts);
-								this.stopSpin('Update Complete!');	
+								}).inject(head).set('text',data.inlineScripts);	
 							}.bind(this)
 						});
 						window.addEvent('onPlatformReady',function(instance){
@@ -212,526 +339,15 @@ var App = {
 					}.bind(this));	
 				}.bind(this));				
 			}.bind(this),function(e){
-				console.log(Json.encode(e));
-			}.bind(this));
-		}
-	}),
-	Server:new Class({
-		Implements:[Events,Options],
-		initialize:function(options){
-			this.$httpd = ( cordova && cordova.plugins && cordova.plugins.CorHttpd ) ? cordova.plugins.CorHttpd : null;
-			
-			this.$httpd.getURL(function(url){
-    			if(url.length > 0) {
-    				document.getElementById('url').innerHTML = "server is up: <a href='" + url + "' target='_blank'>" + url + "</a>";
-    			} else {
-    				document.getElementById('url').innerHTML = "server is down.";
-    			}
-    		});
-		},
-		getURL:function(){
-			
-		}
-	}),
-	FileSystem:new Class({
-		Implements:[Events,Options],
-		options:{
-			quota:0,
-			storage:'PERSISTENT'
-		},
-		directories:{
-			browser:null,
-			android:'dataDirectory',
-			ios:'dataDirectory',
-			windows:'dataDirectory'
-		},
-		initialize:function(options){
-			this.setOptions(options);
-			window.requestFileSystem(window[this.options.storage], this.getQuota(), function (fileSystem) {
-				console.log('file system open: ' + fileSystem.name);
-				switch(cordova.platformId){
-					case 'browser':
-						this.$base = cordova.file.dataDirectory.replace(/file\:\/\/\//,cordova.file.applicationDirectory);
-						break;
-					default:
-						var directory = this.directories[cordova.platformId];
-						this.$base = cordova.file[directory];	
-				}
-				
-				console.log('Base : ',this.$base);
-				window.resolveLocalFileSystemURL(this.$base,function(dirEntry){
-					this.$root = dirEntry;
-					//console.log('File Location:',Json.encode(this.$root));
-					this.fireEvent('onReady',[this]);
-				}.bind(this),function(e){
-					console.log('Error on assigning root directory entry',e);
-				});				
-			}.bind(this), function(){
-				console.log('ON Request File System Error',arguments);
-			}.bind(this));
-		},
-		getQuota:function(){
-			return this.options.quota*1024*1024; 
-		},
-		getRoot:function(){
-			return this.$root;
-		},
-		isEmpty:function(onEmpty,onNotEmpty){
-			this.readDirectory(this.getRoot(),false,function(entries){
-				console.log('isEmpty',entries.length);
-				if (entries.length) {
-					if ($type(onNotEmpty)=='function') {
-						onNotEmpty();
-					}
-				} else {
-					if ($type(onEmpty)=='function') {
-						onEmpty();
-					}
-				}
-			}.bind(this));
-		},
-		clear:function(onClear,onError){
-			this.readDirectory(this.getRoot(),false,function(entries){
-				console.log('Clear',entries.length);
-				if (entries.length) {
-					entries.forEach(function(entry){
-						if (entry.isFile) {
-							this.deleteFile(entry,function(){
-								console.log('File Deleted',arguments);
-								this.isEmpty(onClear); 
-							}.bind(this),onError);
-						} else {
-							this.deleteDirectory(entry,function(){
-								console.log('Directory Deleted',arguments);
-								this.isEmpty(onClear);
-							}.bind(this),onError);
-						}
-					}.bind(this));	
-				} else if ($type(onClear)=='function') {
-					onClear();
-				}	
-			}.bind(this),onError);
-			return this;
-		},
-		getBase:function(){
-			return this.$base;
-			/*
-			var host = cordova.file.applicationDirectory;
-			var directory = cordova.file[this.options.storage=='PERSISTENT'?'dataDirectory':'cacheDirectory'];
-			return directory.replace(/file\:\/\/\//,host);
-			*/
-		},
-		getEntry:function(path,onSuccess,onError){
-			var name = this.getBase()+(path.charAt(0)=='/'?path.substr(1):path);
-			console.log('Get Entry');
-			console.log('Path',path);
-			console.log('name',name);
-			window.resolveLocalFileSystemURL(name,onSuccess,onError);
-			return this;
-		},
-		createFile:function(dirEntry, fileData, onCreate, onError) {
-		    dirEntry.getFile(fileData.name, {create: true, exclusive: false}, function(fileEntry) {
-		        fileEntry.createWriter(function (fileWriter) {
-		        	//console.log('Create File '+fileData.name);
-			        fileWriter.onwriteend = function() {
-			            //console.log("Successfull file write "+fileData.name);
-			            //this.readFile(fileEntry, onCreate, onError);
-			            if ($type(onCreate)=='function') {
-			            	onCreate(fileEntry);
-			            }	
-			        }.bind(this);
-			
-			        fileWriter.onerror = onError;
-			        
-			        //console.log($defined(fileData.blob));
-			        //console.log('Blob',fileData.blob);
-			        var dataObj = $defined(fileData.blob)?fileData.blob:new Blob(fileData.content, { type: $pick(fileData.type,'text/plain') });
-					//console.log(dataObj);
-			        fileWriter.write(dataObj);
-			    }.bind(this));
-		    }.bind(this), onError);
-		    return this;
-		},
-		readFile:function(fileEntry, onRead, onError) {
-	    	fileEntry.file(function (file) {
-		        var reader = new FileReader();
-		        reader.onloadend = function() {
-		            //console.log("Successful file read: " + this.result);
-		            //displayFileData(fileEntry.fullPath + ": " + this.result);
-		            onRead(this.result);
-		        };
-		        reader.readAsText(file);
-		    }, onError);
-		    return this;
-		},
-		deleteFile:function(fileEntry, onDelete, onError){
-			fileEntry.remove(onDelete, onError);
-		    return this;
-		},
-		recurseDirectory:function(dirEntry,paths,onFinished,onError){
-			if (paths.length) {
-				var path = paths.shift();
-				dirEntry.getDirectory(path,{
-					create:true
-				},function(newDirEntry){
-					this.recurseDirectory(newDirEntry,paths,onFinished,onError);
-				}.bind(this),onError);	
-			} else if ($type(onFinished)=='function') {
-				//console.log(dirEntry);
-				//console.log('Directory found '+dirEntry.name);
-				onFinished(dirEntry);
-			}
-		},
-		getDirectory:function(dirEntry,name,autoCreate,onGet,onError){
-			var $paths = new Array();
-			name.split('/').each(function(part){
-				if (part.length) {
-					$paths.push(part);
-				}
-			}) ;
-			
-			if (autoCreate) {
-				this.recurseDirectory(dirEntry,$paths,onGet,onError);
-			} else {
-				dirEntry.getDirectory(name,{
-					create:$pick(autoCreate,false)
-				},onGet,onError);	
-			}
-			
-			return this;
-		},
-		createDirectory:function(dirEntry,name,onCreate,onError){
-			this.getDirectory(dirEntry,true,onCreate,onError);
-			return this;
-		},
-		readDirectory:function(dirEntry,recursive,onRead,onError){
-			//console.log('Read Directory ',dirEntry.toURL());
-			var reader = dirEntry.createReader();
-			var entries = new Array();
-			reader.readEntries(function(results){
-				results.each(function(result){
-					entries.push(result);
-					if ($pick(recursive,false) && result.isDirectory) {
-						result.children = this.readDirectory(result,true);
-					}
-				}.bind(this));
-				if ($type(onRead)=='function') {
-					onRead(entries);
-				}
-			}.bind(this),onError);
-			//console.log(entries);
-			return entries;
-		},
-		deleteDirectory:function(dirEntry,onFinished){
-			dirEntry.removeRecursively(onFinished,onFinished);
-			return this;
-		}
-	}),
-	Localizer:new Class({
-		Implements:[Events,Options],
-		options:{
-			overwrite:false
-		},
-		initialize:function(fileSystem,options){
-			this.$fileSystem = fileSystem;
-			this.setOptions(options);
-			this.$items = new Array();
-		},
-		add:function(item){
-			this.$items.push(item);
-			return this;
-		},
-		setItems:function(items){
-			this.$items = items;
-			return this;
-		},
-		getItems:function(){
-			return this.$items;
-		},
-		clear:function(){
-			this.$items.empty();
-			return this;
-		},
-		download:function(){
-			this.fireEvent('onBeforeDownload',[this]);
-			this.execute(this.getItems(),function(){
-				this.clear();
-				//console.log('Localizetion Complete ');
-				this.fireEvent('onDownloadComplete',[this]);
-			}.bind(this));
-			return this;
-		},
-		localizeLinks:function(url,content){
-			var oldHost = url.toURI().set('directory','').set('file','').toString(),
-				newHost = dirEntry.toURL().replace(base,'');	 				
-			var regexp = /url\(\s*(['"]?)(.*?)\1\s*\)/ig; //RegExp('url\(\'([^\']+)\'\)','gi');
-			var urls = new Array();
-			var exts = ['eot','woff','woff2','ttf','svg'];
-			while((match=regexp.exec(result))!==null) {
-				var uri = match[2].toURI();
-				var file = uri.get('file');
-				var ext = file.split('.').pop();
-				if (exts.contains(ext)) {
-					urls.push({
-						source:match[2],
-						target:match[2].replace(oldHost,'/'+newHost),
-						url:base+match[2].replace(oldHost,newHost)
-					});
-				}
-			}
-		},
-		request:function(item,onRequest,onError){
-			var req = new XMLHttpRequest();
-			req.open('GET',item.source,true);
-			req.responseType = 'blob';
-			req.addEventListener('readystatechange',function(e){
-				//console.log(req);
-				if (req.readyState == 4) {
-					switch(req.status){
-						case 200:
-							if ($type(onRequest)=='function'){
-								onRequest(req.response);
-							}
-							break;
-						case 404:
-							if ($type(onError)=='function') {
-								onError();
-							}
-							break;		
-					}
-				}
-			}.bind(this));
-			req.addEventListener('error',function(e){
-				if ($type(onError)=='function') {
-					onError();
-				}
-			}.bind(this));
-			req.send();
-		},
-		execute:function(list,onComplete){
-			if (list.length) {
-				var item = list.shift();
-				this.$fileSystem.getEntry(item.target,function(fileEntry){
-					console.log('Locallizer file exists ',item.target);
-					this.fireEvent('onExist',[item,fileEntry,this]);
-					if (this.options.overwrite) {
-						this.request(item,function(blob){
-							this.process(item,blob,function(item,blob){
-								//console.log('Processed ',item.source,item.target);
-								this.save(item,blob,function(){
-									this.execute(list,onComplete);
-								}.bind(this));
-							}.bind(this));
-						}.bind(this),function(){
-							this.execute(list,onComplete);
-						}.bind(this));	
-					} else {
-						this.execute(list,onComplete);
-					}	
-					
-				}.bind(this),function(){
-					this.request(item,function(blob){
-						this.process(item,blob,function(item,blob){
-							this.save(item,blob,function(){
-								this.execute(list,onComplete);
-							}.bind(this));
-						}.bind(this));
-					}.bind(this),function(){
-						this.execute(list,onComplete);
-					}.bind(this));
-				}.bind(this));		
-			} else if ($type(onComplete)=='function'){
-				//console.log('Execute Complete');
-				onComplete();
-			}
-			return this;
-		},
-		save:function(item,blob,onSave){
-			var uri = item.target.toURI();
-			var directory = uri.get('directory'),
-				file = uri.get('file');
-			//var ext = file.split('.').pop();
-			//console.log(file,blob);
-			//console.log('Localizer Save : ',directory,file,ext);
-			this.fireEvent('onBeforeSave',[item,blob,this]);
-			this.$fileSystem.getDirectory(this.$fileSystem.getRoot(),directory,true,function(dirEntry){
-				//console.log('Saving to local '+item.source+' >> '+item.target);
-				this.$fileSystem.createFile(dirEntry,{
-					name:file,
-					blob:blob
-				},function(fileEntry){
-					$extend(item,{
-						internal:fileEntry.toInternalURL()
-					});
-					if ($type(item.onLocalize)=='function') {
-						item.onLocalize(item,fileEntry);
-					}
-					if ($type(onSave)=='function') {
-						onSave(item,fileEntry);
-					}
-					this.fireEvent('onSave',[item,fileEntry,this]);
-				}.bind(this),function(e){
-					console.log('Save File Error',directory,file);
-					console.log(e);
-					this.fireEvent('onSaveFileError',[directory,file,item,e,this]);
-				}.bind(this));	
-			}.bind(this),function(e){
-				console.log('Save Directory Error',directory);
 				console.log(e);
-				this.fireEvent('onSaveDirectoryError',[directory,item,e,this]);
 			}.bind(this));
-			return this;
-		},
-		process:function(item,blob,onProcess){
-			var uri = item.target.toURI();
-			var directory = uri.get('directory'),
-				file = uri.get('file');
-			var handler = App.Localizer.Handler;
-			 
-			var ext = file.split('.').pop();
-			console.log('Localizing ',item.source,blob.type);
-			
-			switch(blob.type){
-				case 'text/css':
-					handler = App.Localizer.CSS;
-					break;
-				case 'application/javascript':
-				case 'application/ecmascript':
-				case 'text/javascript':
-				case 'text/ecmascript':
-					handler = App.Localizer.JS;
-					break;
-				default:
-					break;
-			}
-			new handler(this.$fileSystem,item,blob,{
-				overwrite:this.options.overwrite,
-				onComplete:onProcess
-			});
-			return this;
 		}
 	})
 };
 
-$extend(App.Localizer,{
-	Handler:new Class({
-		Implements:[Events,Options],
-		initialize:function(fileSystem,item,blob,options){
-			this.setOptions(options);
-			this.$fileSystem = fileSystem;
-			this.$item = item;
-			this.$blob = blob;
-			this.handle();
-		},
-		handle:function(){
-			this.fireEvent('onComplete',[this.$item,this.$blob,this]);
-		}
-	})
-});
-$extend(App.Localizer,{
-	CSS:new Class({
-		Extends:App.Localizer.Handler,
-		handle:function(){
-			var reader = new FileReader();
-	        reader.onloadend = function() {
-	        	var base = this.$fileSystem.getBase();
-	        	var oldHost = this.$item.source.toURI().set('directory','').set('file','').toString(),
-					newHost = this.$fileSystem.getRoot().toURL().replace(base,'');	
-	            var content = reader.result;
-	            var regexp = /url\(\s*(['"]?)(.*?)\1\s*\)/ig; //RegExp('url\(\'([^\']+)\'\)','gi');
-				var urls = new Array();
-				var exts = ['eot','woff','woff2','ttf','svg'];
-				while((match=regexp.exec(content))!==null) {
-					var uri = match[2].toURI();
-					var file = uri.get('file');
-					var ext = file.split('.').pop();
-					
-					if (exts.contains(ext)) {
-						var item = {
-							source:match[2],
-							target:match[2].replace(oldHost,'/'+newHost),
-							url:base+match[2].replace(oldHost,newHost)
-						};
-						//console.log(item);
-						urls.push(item);
-					}
-				}
-				if (urls.length) {
-					new App.Localizer(this.$fileSystem,{
-						overwrite:this.options.overwrite,
-						onSave:function(item){
-							content = content.replace(item.source,item.url);
-						}.bind(this),
-						onDownloadComplete:function(){
-							this.fireEvent('onComplete',[this.$item,new Blob([content],{type:'text/css'}),this]);	
-						}.bind(this)
-					}).setItems(urls).download();	
-				} else {
-					this.fireEvent('onComplete',[this.$item,this.$blob,this]);
-				}
-	        }.bind(this);
-	        reader.readAsText(this.$blob);
-		}
-	}),
-	JS:new Class({
-		Extends:App.Localizer.Handler,
-		options:{
-			excludedExtensions:['map']
-		},
-		handle:function(){
-			var ext = this.$item.source.toURI().get('file').split('.').pop();
-			//console.log('Localizer JS Handler',this.$item,ext);
-        	if (!this.options.excludedExtensions.contains(ext)) {
-        		var reader = new FileReader();
-		        reader.onloadend = function() {
-		        	var base = this.$fileSystem.getBase();
-		        	var source = this.$item.source.toURI();
-		        	
-		        	var oldHost = this.$item.source.toURI().set('directory','').set('file','').toString(),
-						newHost = this.$fileSystem.getRoot().toURL().replace(base,'');	
-		            var content = reader.result;
-		            var regexp = /\/\/\# sourceMappingURL=(.*?)\.map/igm; //RegExp('url\(\'([^\']+)\'\)','gi');
-					var urls = new Array();
-					while((match=regexp.exec(content))!==null) {
-						var sourceFile = source.set('file',match[1]+'.map').toString();
-						var item = {
-							source:sourceFile,
-							target:sourceFile.replace(oldHost,'/'+newHost)
-						};
-						urls.push(item);
-					}
-					
-					if (urls.length) {
-						new App.Localizer(this.$fileSystem,{
-							overwrite:this.options.overwrite,
-							onDownloadComplete:function(){
-								this.fireEvent('onComplete',[this.$item,this.$blob,this]);	
-							}.bind(this)
-						}).setItems(urls).download();
-					} else {
-						this.fireEvent('onComplete',[this.$item,this.$blob,this]);	
-					}
-		        }.bind(this);
-		        reader.readAsText(this.$blob);	
-	        } else {
-	        	this.fireEvent('onComplete',[this.$item,this.$blob,this]);	
-	        }			
-		}
-	})
-});
 
-$extend(App.FileSystem,{
-	$instances:{},
-	getInstance:function(storage,options){
-		var storage = $pick(storage,'PERSISTENT');
-		if (!$defined(App.FileSystem.$instances[storage])) {
-			App.FileSystem.$instances[storage] = new App.FileSystem($merge({
-				storage:storage
-			},options));
-		}
-		return App.FileSystem.$instances[storage];
-	}
-});
+
+
 
 if (typeof(window.localStorage) !== "undefined") {
 	// Code for localStorage/sessionStorage.
